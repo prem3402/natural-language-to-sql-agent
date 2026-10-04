@@ -118,15 +118,18 @@ def execute_query(query: str) -> str:
         cursor = connection.cursor()
         cursor.execute(query)
         rows = cursor.fetchall()
+        col_names = (
+            [desc[0] for desc in cursor.description] if cursor.description else []
+        )
 
         if not rows:
             return "Query executed successfully. No rows found"
 
-        result = []
+        lines = [" | ".join(col_names)] if col_names else []
         for row in rows:
             for val in row:
-                result.append(str(val))
-        return "\n".join(result)
+                lines.append(" | ".join(str(val)))
+        return "\n".join(lines)
 
     except Exception as e:
         return f"SQL execution error: {e}"
@@ -139,7 +142,7 @@ def execute_query(query: str) -> str:
 
 tools = [list_tables, get_schema, execute_query]
 
-# llm = ChatOpenRouter(model="qwen/qwen3.8-27b:free")
+
 llm = init_chat_model(model="groq:qwen/qwen3.8-27b")
 
 system_prompt = """

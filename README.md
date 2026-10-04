@@ -1,4 +1,4 @@
-# PostgreSQL AI Assistant
+# PostgreSQL AI Assistant (Natural Language to SQL Agent)
 
 A conversational agent that lets you query a PostgreSQL database in plain English. Built with LangChain's agentic tool-calling framework, it inspects your database schema on the fly, generates SQL, executes it, and returns a natural-language answer — no SQL knowledge required.
 

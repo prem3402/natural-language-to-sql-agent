@@ -10,6 +10,8 @@ from contextlib import contextmanager
 import psycopg2
 from dotenv import load_dotenv
 
+import re
+
 load_dotenv()
 
 
@@ -33,11 +35,17 @@ def db_cursor():
         conn.close()
 
 
+def clean_sql(query: str) -> str:
+    query = query.strip()
+    query = re.sub(r"^```(?:sql)?\s*", "", query, flags=re.IGNORECASE)
+    query = re.sub(r"\s*```$", "", query)
+    return query.strip().rstrip(";").strip()
+
+
 @tool
 def list_tables() -> str:
-    """Lists all the tables in PostgreSQL database."""
-    connection = None
-    cursor = None
+    """Lists all the tables in the PostgreSQL database."""
+
     try:
         with db_cursor() as cursor:
             cursor.execute("""
@@ -57,8 +65,6 @@ def list_tables() -> str:
 @tool
 def get_schema(table_name: str) -> str:
     """Get the column and data types of a PostgreSQL table"""
-    connection = None
-    cursor = None
     try:
         with db_cursor() as cursor:
             cursor.execute(
@@ -74,7 +80,7 @@ def get_schema(table_name: str) -> str:
             )
             columns = cursor.fetchall()
         if not columns:
-            return f"Table '{table_name}' doesn't exists."
+            return f"Table '{table_name}' doesn't exist."
 
         result = []
         for column in columns:
@@ -92,21 +98,13 @@ def get_schema(table_name: str) -> str:
 
 @tool
 def execute_query(query: str) -> str:
-    """Execute a read-only SQL query using PostgreSQL only SELECT query is allowed."""
-    query = query.strip()
-
-    if query.startswith("```sql"):
-        query = query[6:]
-    elif query.startswith("```"):
-        query = query[3:]
-    elif query.endswith("```"):
-        query = query[:-3]
-    query = query.strip()
+    """Execute a read-only SQL query using PostgreSQL. Only SELECT query are allowed."""
+    query = clean_sql(query)
 
     query_lower = query.lower()
 
     if not query_lower.startswith("select"):
-        return """Error: Only SELECT  queries are allowed"""
+        return """Error: Only SELECT queries are allowed."""
 
     try:
         with db_cursor() as cursor:
@@ -136,7 +134,7 @@ llm = init_chat_model(model="groq:qwen/qwen3.8-27b")
 
 system_prompt = """
 You are a PostgreSQL database assistant.
-Your job is to answer queries using the PostgreSQL database
+Your job is to answer user questions using the PostgreSQL database.
 
 Follow this process:
 1. Use list_tables to discover available tables.
@@ -144,7 +142,7 @@ Follow this process:
 3. Use get_schema to inspect relevant tables.
 4. Generate valid PostgreSQL SQL queries.
 5. Use execute_query to execute the SQL queries.
-6. Use the returned return to answer user.
+6. Use the returned rows to answer the user.
 
 IMPORTANT RULES:
 - Only retrieve data.
@@ -189,7 +187,7 @@ if question:
         st.markdown(question)
 
     with st.chat_message("assistant"):
-        with st.spinner("Thinking and quering database"):
+        with st.spinner("Thinking and quering the database..."):
             try:
                 response = agent.invoke(
                     {"messages": [{"role": "user", "content": question}]}
